@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#111111">
+<title>競馬 点数メモ</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f4f4f4;color:#222;font-family:-apple-system,BlinkMacSystemFont,"Noto Sans JP",sans-serif}
+header{position:sticky;top:0;z-index:5;background:#111;color:#fff;padding:14px 14px 12px}
+h1{font-size:20px;margin:0 0 10px}
+.top{display:flex;gap:8px}
+button{border:0;border-radius:10px;font-weight:700;cursor:pointer}
+.modal{display:none;position:fixed;inset:0;background:#0009;z-index:20;padding:20px}
+.rankingBox{background:#fff;max-width:600px;margin:20px auto;border-radius:18px;max-height:90vh;overflow:auto}
+.rankingHead{position:sticky;top:0;background:#111;color:#fff;padding:14px 16px;display:flex;align-items:center;justify-content:space-between}
+.rankingHead h2{margin:0;font-size:20px}
+.rankingHead button{background:#444;color:#fff;width:38px;height:38px}
+.rankItem{display:flex;align-items:center;padding:13px 16px;border-bottom:1px solid #eee;gap:12px}
+.rankNo{width:34px;text-align:center;font-size:18px;font-weight:800}
+.medal{font-size:23px}
+.rankHorse{font-weight:800;font-size:18px}
+.rankScore{margin-left:auto;font-size:22px;font-weight:800}
+.rankNote{font-size:12px;color:#777;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:170px}
+
+.reset{background:#fff;color:#111;padding:9px 14px}
+.sort{background:#444;color:#fff;padding:9px 14px}
+main{max-width:700px;margin:auto;padding:10px}
+.horse{background:#fff;border-radius:14px;margin:8px 0;padding:12px;box-shadow:0 1px 5px #0001}
+.row{display:flex;align-items:center;gap:10px}
+.num{width:42px;height:42px;border-radius:10px;background:#eee;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800}
+.score{font-size:27px;font-weight:800;min-width:65px;text-align:right;margin-left:auto}
+.controls{display:flex;gap:7px;margin-top:10px}
+.add{flex:1;padding:12px 5px;background:#222;color:#fff;font-size:16px}
+.minus{flex:0 0 58px;padding:10px;background:#ddd;color:#222}
+.note{margin-top:8px;width:100%;border:1px solid #ddd;border-radius:8px;padding:8px;font-size:14px}
+.small{font-size:12px;color:#777;margin:4px 0 0 52px}
+.empty{padding:30px;text-align:center;color:#777}
+</style>
+</head>
+<body>
+<header>
+  <h1>🏇 馬の点数メモ</h1>
+  <div class="top">
+    <button class="reset" onclick="resetAll()">全てリセット</button>
+    <button class="sort" onclick="showRanking()">ランキング</button>
+  </div>
+</header>
+<main id="list"></main>
+<div id="rankingModal" class="modal" onclick="if(event.target===this)closeRanking()">
+  <div class="rankingBox">
+    <div class="rankingHead">
+      <h2>🏆 最終ランキング</h2>
+      <button onclick="closeRanking()">✕</button>
+    </div>
+    <div id="ranking"></div>
+  </div>
+</div>
+<script>
+let horses = Array.from({length:18},(_,i)=>({num:i+1,score:0,note:""}));
+let sorted=false;
+
+function save(){localStorage.setItem("horseScores",JSON.stringify(horses));}
+function load(){
+  try{
+    const x=JSON.parse(localStorage.getItem("horseScores"));
+    if(Array.isArray(x)&&x.length===18) horses=x;
+  }catch(e){}
+}
+function add(n,v){let h=horses.find(x=>x.num===n);h.score=Math.max(0,h.score+v);save();render();}
+function note(n,v){horses.find(x=>x.num===n).note=v;save();}
+function resetAll(){
+  if(confirm("点数をすべて0にしますか？")){
+    horses.forEach(h=>h.score=0);save();render();
+  }
+}
+function showRanking(){
+  const arr=[...horses].sort((a,b)=>b.score-a.score||a.num-b.num);
+  document.getElementById("ranking").innerHTML=arr.map((h,i)=>{
+    const medal=i===0?"🥇":i===1?"🥈":i===2?"🥉":`${i+1}位`;
+    return `<div class="rankItem">
+      <div class="rankNo">${medal}</div>
+      <div>
+        <div class="rankHorse">${h.num}番</div>
+        ${h.note?`<div class="rankNote">${escapeHtml(h.note)}</div>`:""}
+      </div>
+      <div class="rankScore">${h.score}点</div>
+    </div>`;
+  }).join("");
+  document.getElementById("rankingModal").style.display="block";
+}
+function closeRanking(){document.getElementById("rankingModal").style.display="none";}
+function render(){
+  const arr=[...horses];
+  if(sorted) arr.sort((a,b)=>b.score-a.score||a.num-b.num);
+  document.getElementById("list").innerHTML=arr.map(h=>`
+    <section class="horse">
+      <div class="row">
+        <div class="num">${h.num}</div>
+        <div><b>${h.num}番</b><div class="small">タップして加点</div></div>
+        <div class="score">${h.score}点</div>
+      </div>
+      <div class="controls">
+        <button class="minus" onclick="add(${h.num},-1)">−1</button>
+        <button class="add" onclick="add(${h.num},1)">＋1</button>
+        <button class="add" onclick="add(${h.num},5)">＋5</button>
+        <button class="add" onclick="add(${h.num},10)">＋10</button>
+      </div>
+      <input class="note" placeholder="メモ（例：展開◎、調教○）" value="${escapeHtml(h.note)}"
+        onchange="note(${h.num},this.value)">
+    </section>
+  `).join("");
+}
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+load();render();
+</script>
+</body>
+</html>
